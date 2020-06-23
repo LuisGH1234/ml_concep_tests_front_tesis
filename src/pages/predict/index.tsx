@@ -1,11 +1,30 @@
 import React, { FC, useState } from "react";
-import { Input, Row, Col, InputGroup, Label, Form, FormGroup, Button } from "reactstrap";
+import {
+    Input,
+    Row,
+    Col,
+    InputGroup,
+    Label,
+    Form,
+    FormGroup,
+    Button,
+    Modal,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
+} from "reactstrap";
 import { Select, Lottie } from "../../components";
 // import Select from "react-select";
 import Axios, { AxiosError } from "axios";
 import loadingJson from "../../assets/loading.json";
+import { render } from "@testing-library/react";
 
 type Body = { prob: string; target: string };
+interface ModalProps {
+    isOpen: boolean;
+    messages: string[];
+    toggle: () => void;
+}
 
 const genderOptions = [
     { value: "1", label: "Masculino (1)" },
@@ -13,10 +32,10 @@ const genderOptions = [
 ];
 
 const anginaOptions = [
-    { value: "0", label: "Angina típica (0)" },
-    { value: "1", label: "Angina atípica (1)" },
-    { value: "2", label: "Dolor no anginal (2)" },
-    { value: "3", label: "No presenta (3)" },
+    { value: "1", label: "Angina típica (1)" },
+    { value: "2", label: "Angina atípica (2)" },
+    { value: "3", label: "Dolor no anginal (3)" },
+    { value: "4", label: "No presenta (4)" },
 ];
 
 const estadoCorOptions = [
@@ -27,7 +46,33 @@ const estadoCorOptions = [
 
 const BASE_URL = "http://3.230.230.245:5000";
 
+const $Modal: FC<ModalProps> = (props) => {
+    if (!Array.isArray(props.messages)) {
+        console.log("El modal no se puede mostrar correctamente.");
+        return <div />;
+    }
+    return (
+        <Modal isOpen={props.isOpen} toggle={props.toggle} /*className={className}*/>
+            <ModalHeader toggle={props.toggle}>Errores encontrados</ModalHeader>
+            <ModalBody>
+                {props.messages.map((x, i) => (
+                    <div key={i}>
+                        <label style={{ color: "red" }}>{x}</label>
+                        <br />
+                    </div>
+                ))}
+            </ModalBody>
+            <ModalFooter>
+                <Button color="primary" onClick={props.toggle}>
+                    Cerrar
+                </Button>
+            </ModalFooter>
+        </Modal>
+    );
+};
+
 export const Predict: FC = () => {
+    const [showModal, setShowModal] = useState(false);
     const [sexo, setSexo] = useState<string>("");
     const [angina, setAngina] = useState("");
     const [corazon, setCorazon] = useState("");
@@ -64,16 +109,34 @@ export const Predict: FC = () => {
         let message: string[] = [];
         if (sexo === "") message.push('El campo "Género" es obligatorio');
         if (angina === "") message.push('El campo "Tipo de angina" es obligatorio');
+
         if (preArterial === "") message.push('El campo "Presión arterial" es obligatorio');
+        else if (isNaN(Number(preArterial)))
+            message.push('El campo "Presión arterial" debe ser numérico');
+        else if (Number(preArterial) < 1)
+            message.push('El campo "Presión arterial" debe ser mayor a cero');
+
         if (colesterol === "") message.push('El campo "Colesterol" es obligatorio');
+        else if (isNaN(Number(colesterol))) message.push('El campo "Colesterol" debe ser numérico');
+        else if (Number(colesterol) < 1)
+            message.push('El campo "Colesterol" debe ser mayor a cero');
 
         if (glucosa === "") message.push('El campo "Glucosa" en ayuna es obligatorio');
+        else if (isNaN(Number(glucosa))) message.push('El campo "Glucosa" debe ser numérico');
+        else if (Number(glucosa) < 1) message.push('El campo "Glucosa" debe ser mayor a cero');
+
         if (bpm === "") message.push('El campo "Frecuencia cardiaca" es obligatorio');
+        else if (isNaN(Number(bpm)))
+            message.push('El campo "Frecuencia cardiaca" debe ser numérico');
+        else if (Number(bpm) < 1)
+            message.push('El campo "Frecuencia cardiaca" debe ser mayor a cero');
+
         if (fluroscopia === "") message.push('El campo "Fluroscopia" es obligatorio');
         else {
             const num = Number(fluroscopia);
             if (num < 0 || num > 3) message.push('El campo "Fluroscopia" debe ser entre 0 a 3');
         }
+
         if (corazon == "") message.push('El campo "Estado del corazón" es obligatorio');
 
         setResponse({ loading: false, value: message, error: true });
@@ -94,44 +157,52 @@ export const Predict: FC = () => {
     };
     const renderResponse = () => {
         if (!response.value && response.error === false) return <div />;
-        if (response.error && Array.isArray(response.value)) {
+        // if (response.error && Array.isArray(response.value)) {
+        // return (
+        //     <div style={{ margin: "2rem 8px" }}>
+        //         <h2 style={{ color: "red" }}>
+        //             <strong>Error</strong>
+        //         </h2>
+        //         {response.value.map((x, i) => (
+        //             <div key={i}>
+        //                 <label style={{ color: "red" }}>{x}</label>
+        //                 <br />
+        //             </div>
+        //         ))}
+        //     </div>
+        // );
+        // }
+        if (response.error === false && !Array.isArray(response.value))
             return (
                 <div style={{ margin: "2rem 8px" }}>
-                    <h2 style={{ color: "red" }}>
-                        <strong>Error</strong>
-                    </h2>
-                    {response.value.map((x, i) => (
-                        <div key={i}>
-                            <label style={{ color: "red" }}>{x}</label>
-                            <br />
-                        </div>
-                    ))}
+                    {response.error && (
+                        <h2 style={{ color: "red" }}>
+                            <strong>Error</strong>
+                        </h2>
+                    )}
+                    <h3>
+                        {response.error ? (
+                            response.value
+                        ) : (
+                            <label>
+                                Probabilidad de riesgo cardiovascular:{" "}
+                                <strong>{(Number(response.value) * 100).toFixed(2)}</strong>
+                            </label>
+                        )}
+                    </h3>
                 </div>
             );
-        }
-        return (
-            <div style={{ margin: "2rem 8px" }}>
-                {response.error && (
-                    <h2 style={{ color: "red" }}>
-                        <strong>Error</strong>
-                    </h2>
-                )}
-                <h3>
-                    {response.error ? (
-                        response.value
-                    ) : (
-                        <label>
-                            Probabilidad de riesgo cardiovascular:{" "}
-                            <strong>{(Number(response.value) * 100).toFixed(2)}</strong>
-                        </label>
-                    )}
-                </h3>
-            </div>
-        );
+        return <div />;
+        // return <div>Ocurrio un problema al renderizar el resultado</div>;
     };
 
     return (
         <div>
+            <$Modal
+                isOpen={showModal}
+                messages={response.value as string[]}
+                toggle={() => setShowModal((prev) => !prev)}
+            />
             <h1 style={{ color: "rgba(43, 55, 151, 0.85)" }}>
                 Sistema de auxilio para el adulto mayor utilizando Machine Learning
             </h1>
@@ -285,7 +356,7 @@ export const Predict: FC = () => {
                             };
                             console.log(data);
                             onSubmit(data);
-                        }
+                        } else setShowModal(true);
                         v.preventDefault();
                     }}
                     disabled={response.loading}
